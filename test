@@ -1,0 +1,109 @@
+深度学习环境部署方法
+
+硬件需求：GPU 
+系统：Ubuntu16.04
+
+软件环境配置如下：
+CUDA 10.1
+Nvidia driver 418.87.00
+Anaconda3.2019.07
+python3.7.3
+Linux Ubuntu 16.04
+
+1 安装英伟达驱动（这一步容易出现login loop情况）
+（1）从官方网站（nvidia.com/Download/index.aspx）上下载显卡驱动版本。本系统下载的版本是NVIDIA-Linux-x86_64-418.87.00.run。
+（2）禁用nouveau
+    编辑配置文件：sudo gedit /ect/modprobe.d/blacklist.conf
+    在文本最后一行加入： blacklist nouveau
+    执行更新：sudo update-initramfs -u
+    reboot重启后执行：lsmod | grep nouveau  此时没有输出表明禁用ok
+（3）进入命令行界面并禁用图像桌面：
+    ctrl-Alt+F1进入命令行界面。登录之后执行：sudo /etc/init.d/lightdm stop
+ (4)安装英伟达驱动：
+    给下载好的驱动文件赋予执行命令：sudo chmod a+x NVIDIA-Linux-x86_64-418.87.00.run
+    安装英伟达驱动，注意，这里一定要禁用opengl，否则重启系统是会变成login loop的状态，执行：
+    sudo sh ./NVIDIA-Linux-x86_64-418.87.00.run  -no-opengl-files -no-x-check -no-nouveau-check
+（5）reboot重启 执行nvidia-smi可以看到显卡驱动的相关信息。
+
+注意：如果此时出现了login loop的情况：
+ctrl-Alt+F1 进入命令行界面，然后执行：
+     sudo rm -r /tmp
+     sudo mkdir /tmp
+     sudo chmod 1777 /tmp
+     sudo reboot
+     sudo rm .Xauthority
+如果此时还有login loop的情况，继续打开命令行界面，卸载驱动，重新安装，执行：
+     sudo apt-get remove cuda*
+     sudo apt-get remove nvidia*
+     或者 sudo apt-get remove --purge nvidia* 
+     sudo reboot 
+
+
+
+2 安装CUDA10.1
+ （1）从官方网站（developer.nvidia.com/cuda-downloads）上下载CUDA10.1，本系统下载的版本是cuda_10.1.243_418.87.00_linux.run，需要注意的是下载的是runfile版本，因为其可以选择不安装Nvidia Driver。
+ （2）下载好后，执行命令：sudo /etc/init.d/lightdm stop 来登录并关闭图形界面。
+ （3）开始安装CUDA
+      通过cd命令进入下载文件夹后，执行命令：sudo sh cuda_10.1.243_418.87.00_linux.run 
+      开始安装，注意，这安装过程中会被询问是否要安装Nvidia driver，此时一定要选择no，不安装，否则又会出现上述的login loop的情况，其他的选择均都accept和yes即可，安装在默认目录。
+ （4）安装好后，执行命令： sudo /etc/init.d/lightdm start 来打开图形界面。
+
+3 安装Anaconda
+ （1）从Anaconda官方网站（www.anaconda.com）上下载安装文件，注意选择Linux64-Bit下的python3.7版本，具体本系统的下载文件如下： Anaconda3-2019.07-Linux-x86_64.sh。 
+ （2）安装Anaconda
+      打开终端，通过cd指令进入下载文件所在的文件夹，执行命令：
+      bash Anaconda3-2019.07-Linux-x86_64.sh
+      安装时会问是否继续时，输入yes即可，均采用默认配置。安装好后打开home文件夹，可以发现多了一个Anaconda3的文件夹，这就说明安装成功。
+ （3）配置Anaconda3的环境变量
+      我们需要输入指令，更改pthon的运行地址，否则Linux系统无法找到，执行命令：
+      export PATH=/home/anaconda3/bin:$PATH
+      将Anaconda的路径添加进环境变量中。
+ （4）检查 
+      打开终端，直接运行指令：python
+      若能正常运行python，即为配置成功。
+另外，采用指令conda list 可以查看当前环境中的python包含的所有的包。
+
+4 通过Anaconda建立虚拟环境
+一般情况下每一个python项目下都需要一个尽可能独立的python环境，因此考虑创建一个新的python虚拟环境以便于包的管理。
+  （1）创建虚拟环境
+       打开终端，使用命令：conda create --name tf1 python=3.7.3
+       来创建一个名为tf1的虚拟环境，需要注意的是python的版本号一定要对应上。
+  （2）进入虚拟环境
+       每次需要进入一个虚拟环境的时候，打开终端，输入指令：
+       source activate tf1 
+       即可，其中tf1是要进入的虚拟环境的名字。
+一般而言，cuda,cudnn,anaconda安装在系统环境里，剩下的pytorch,tensorflow等可以用conda安装在虚拟环境里。
+
+5 安装Cudnn
+  （1）从Nvidia官方网站（developer.nvidia.com/cudnn）上下载cudnn文件，需要注意的是这里需要在官网上简单注册一个账号，注册完成后即可下载，同时也需要注意Cudnn与CUDA的版本号的对应，否则会不匹配，具体的文件名为：cudnn-10.1-linux-x64-v7.6.3.30.tgz。
+  （2）Cudnn的安装，从官网上下载的是一个压缩文件，直接将其解压到当前文件夹，可以发现一个名字叫cuda的文件夹，我们仅需要把里面的文件复制到我们已装好的CUDA10.1的文件夹中即可，但由于Linux的usr文件夹不能直接进行辅助粘贴操作，故我们打开终端，通过cd命令进入到下载的Cudnn的文件夹后，使用命令：
+       sudo cp cuda/include/cudnn.h /usr/local/cuda/include
+       sudo cp cuda/lib64/libcudnn* /usr/local/cuda/lib64
+       sudo chmod a+r /usr/local/cuda/include/cudnn.h /usr/local/cuda/lib64/libcudnn*
+       三条命令将当前文件夹的文件复制过去即可。
+   （3）Cudnn的检查
+       打开终端，输入  
+       cat /usr/local/cuda/include/cudnn.h | grep CUDNN_MAJOR -A 2
+       此时可以看到终端输出为：
+       #define CUDNN_MAJOR 7
+       #define CUDNN_MINOR 6
+       #define CUDNN_PATCHLEVEL 3
+       即表示我们安装好的Cudnn的版本号为7.6.3，即安装成功。
+
+6 在虚拟环境中安装Tensorflow
+   （1）进入虚拟环境
+       通过命令： source activate tf1 
+       进入到之前建立的名为tf1的虚拟环境中。
+   （2）安装Tensorflow
+       由于conda可以自动识别当前环境中的CUDA和Cudnn的版本情况，并自动选择适合的Tensorflow版本，故推荐采用conda而非pip进行Tensorflow的安装。
+       输入命令： conda install tensorflow-gpu
+       在当前tf1环境中下载并安装Tensorflow。需要注意的是，如果下载速度过慢，可以考虑更换镜像源，具体用到的命令如下：
+       conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
+       conda config --set show_channel_urls yes
+       即可更换至国内的清华下载源，提高下载速度。
+   （3）检查Tensorflow
+       有多种方式可以检查Tensorflow是否安装成功，
+        1.打开终端，按上述同样的方式进入虚拟环境tf1，输入命令conda list即可看到当年python环境中的所有的包，查看其中是否含有tensorflow-gpu项，若有，即为安装成功。
+        2.在进入虚拟环境之后，输入指令python，打开python后，输入import tensorflow观察终端是否报错，若没有报错即为安装成功。另外可以在python中使用tensorflow.test.gpu_device_name()函数来查看gpu时候配置成功，若可以显示可用的gpu，则Tensorflow成功安装。
+
+
